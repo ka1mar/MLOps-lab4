@@ -16,11 +16,6 @@ class DataMaker:
         self.y_train_path = self.config["SPLIT_DATA"]["y_train"]
         self.y_test_path = self.config["SPLIT_DATA"]["y_test"]
 
-        self.X_train = None
-        self.X_test = None
-        self.y_train = None
-        self.y_test = None
-
         self.test_size = self.config.getfloat("SPLIT_DATA", "test_size")
         self.random_state = self.config.getint("SPLIT_DATA", "random_state")
         

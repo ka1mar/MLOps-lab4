@@ -20,7 +20,6 @@ class CatBoostModel:
 
         # Загрузка данных
         self.X_train = pd.read_csv(self.config["SPLIT_DATA"]["X_train"])
-        
         self.y_train = pd.read_csv(self.config["SPLIT_DATA"]["y_train"])
         self.X_test = pd.read_csv(self.config["SPLIT_DATA"]["X_test"])
         self.y_test = pd.read_csv(self.config["SPLIT_DATA"]["y_test"])
