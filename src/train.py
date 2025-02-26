@@ -32,7 +32,7 @@ class CatBoostModel:
         self.verbose = self.config.getint("CATBOOST_PARAMS", "verbose")
         self.random_seed = self.config.getint("CATBOOST_PARAMS", "random_seed")
 
-        self.model_path = os.path.join(os.getcwd(), "catboost_model.cbm")
+        self.model_path = self.config["MODEL"]["path"]
 
         self.log.info("CatBoostModel initialized")
 

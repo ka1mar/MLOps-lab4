@@ -1,0 +1,8 @@
+{
+    "features": [
+        {"Area": 12.43, "Perimeter": 13.12, "Compactness": 0.8671, "Kernel.Length": 5.232, "Kernel.Width": 3.002, "Asymmetry.Coeff": 1.243, "Kernel.Groove": 4.988},
+        {"Area": 11.87, "Perimeter": 12.28, "Compactness": 0.8579, "Kernel.Length": 4.987, "Kernel.Width": 2.756, "Asymmetry.Coeff": 1.567, "Kernel.Groove": 4.654},
+        {"Area": 13.76, "Perimeter": 13.89, "Compactness": 0.8652, "Kernel.Length": 5.432, "Kernel.Width": 3.112, "Asymmetry.Coeff": 1.998, "Kernel.Groove": 5.123}
+    ],
+    "Type": [[3], [1], [1]]
+}
