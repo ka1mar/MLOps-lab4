@@ -21,7 +21,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: Pull with compose
-        run: docker-compose pull
+        run: docker compose pull
       -
         name: Run tests
-        run: docker-compose up --abort-on-container-exit
+        run: docker compose up --abort-on-container-exit
