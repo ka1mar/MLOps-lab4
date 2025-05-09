@@ -24,4 +24,6 @@ jobs:
         run: docker compose pull
       -
         name: Run tests
+        env: 
+          HOST: ${{ secrets.HOST }}
         run: docker compose up --abort-on-container-exit
