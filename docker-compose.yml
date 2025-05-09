@@ -1,28 +1,50 @@
 services:
-#    train_model:
-#        build: .
-#        command: bash -c "
-#         python src/db_operations.py &&
-#         python src/preprocess.py &&
-#         python src/train.py && 
-#         python src/predict.py -m ./catboost_model.cbm &&
-#         coverage run src/unit_tests/test_preprocess.py &&
-#         coverage run src/unit_tests/test_train.py &&
-#         coverage run src/unit_tests/test_predict.py &&
-#         coverage run src/unit_tests/test_model_app.py &&
-#         coverage report -m
-#         "
+   train_model:
+       build: .
+       environment:
+         - HOST=${HOST}
+         - PORT=${PORT}
+         - DBNAME=${DBNAME}
+         - USER=${USER}
+         - PASSWORD=${PASSWORD}
+       command: bash -c "
+        echo ${HOST} &&
+        echo ${PORT} &&
+        echo ${DBNAME} &&
+        echo ${USER} &&
+        echo ${PASSWORD} &&
 
-#        image: ka1mar/mlops-lab1:latest
-#        depends_on:
-#          - greenplum
-#        networks:
-#          - ml-network
+        python src/db_operations.py &&
+        python src/preprocess.py &&
+        python src/train.py && 
+        python src/predict.py -m ./catboost_model.cbm &&
+        coverage run src/unit_tests/test_preprocess.py &&
+        coverage run src/unit_tests/test_train.py &&
+        coverage run src/unit_tests/test_predict.py &&
+        coverage run src/unit_tests/test_model_app.py &&
+        coverage report -m
+        "
+       image: ka1mar/mlops-lab1:latest
+       depends_on:
+         - greenplum
+       networks:
+         - ml-network
+
+   web_app:
+       build: .
+       command: bash -c "python ./src/model_app.py && sleep 3600" 
+       image: ka1mar/mlops-lab1:latest
+       ports:
+         - "5000:5000"
+       restart: unless-stopped
+       tty: true
+       networks:
+         - ml-network
 
    greenplum:
        image: datagrip/greenplum:6.8
        ports:
-         - "5432:5432"  # This maps container port 5432 to host port 5432
+         - "5432:5432"
        volumes:
          - greenplum-data:/var/lib/postgresql/data
        networks:
@@ -34,11 +56,3 @@ networks:
 
 volumes:
     greenplum-data:
-
-
-  #  web_app:
-  #      build: .
-  #      command: bash -c "flask --app ./src/model_app.py run --host=0.0.0.0"
-  #      image: ka1mar/mlops-lab1:latest
-  #      ports:
-  #        - "5000:5000"

@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import logging
 from catboost import CatBoostClassifier, Pool
+from db_operations import DatabaseOperator
 
 class CatBoostPredictor:
     def __init__(self, config_path='config.ini'):
@@ -19,6 +20,8 @@ class CatBoostPredictor:
         self.parser = argparse.ArgumentParser(description="CatBoost Predictor")
         self.parser.add_argument("-m", "--model", type=str, help="Path to stored CatBoost model", required=True)
         self.args = self.parser.parse_args()
+
+        self.db_op = DatabaseOperator()
 
         # Загрузка данных
         self.X_test = pd.read_csv(self.config["SPLIT_DATA"]["X_test"])
@@ -36,10 +39,16 @@ class CatBoostPredictor:
         self.log.info("Performing inference...")
         test_pool = Pool(self.X_test)
         predictions = model.predict(test_pool)
-        
-        # Вы можете адаптировать вывод в зависимости от ваших потребностей
+
         for i, prediction in enumerate(predictions):
             self.log.info(f"Prediction for test sample {i}: {prediction}")
+
+        predicted_data = self.X_test.copy()
+        predicted_data['target'] = predictions
+
+        predicted_data_dict = predicted_data.to_dict('records')
+        self.db_op.load_prediction_in_db(predicted_data_dict)
+        self.log.info(f"Prediction logged to the database")
 
 # Для запуска этого модуля используйте следующую строку для командной строки:
 # python catboost_predictor.py -m catboost_model.cbm
