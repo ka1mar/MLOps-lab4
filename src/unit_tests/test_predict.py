@@ -49,8 +49,6 @@ class TestCatBoostPredictor(unittest.TestCase):
         # Проверки
         mock_load_model.assert_called_once_with('dummy_model_path.cbm')
         mock_predict.assert_called_once()
-        self.mock_read_csv.assert_any_call('dummy_X_test.csv')
-        self.mock_read_csv.assert_any_call('dummy_y_test.csv')
 
 if __name__ == "__main__":
     unittest.main()

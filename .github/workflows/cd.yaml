@@ -26,4 +26,8 @@ jobs:
         name: Run tests
         env: 
           HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
+          USER: ${{ secrets.USER }}
+          PASSWORD: ${{ secrets.PASSWORD }}
         run: docker compose up --abort-on-container-exit

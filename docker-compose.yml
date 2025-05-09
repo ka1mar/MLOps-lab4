@@ -8,12 +8,6 @@ services:
          - USER=${USER}
          - PASSWORD=${PASSWORD}
        command: bash -c "
-        echo ${HOST} &&
-        echo ${PORT} &&
-        echo ${DBNAME} &&
-        echo ${USER} &&
-        echo ${PASSWORD} &&
-
         python src/db_operations.py &&
         python src/preprocess.py &&
         python src/train.py && 

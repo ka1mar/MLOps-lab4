@@ -29,7 +29,7 @@ class DatabaseOperator:
         self._wait_for_db()
         self._setup_database()
 
-    def _wait_for_db(self, max_attempts=30, delay=5):
+    def _wait_for_db(self, max_attempts=30, delay=10):
         self.log.info("Waiting for Greenplum database to be ready...")
         attempts = 0
         while attempts < max_attempts:
