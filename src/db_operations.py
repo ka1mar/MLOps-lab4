@@ -4,17 +4,19 @@ import configparser
 import logging
 import time
 import os
+import requests
+import json
 
 class DatabaseOperator:
     def __init__(self, config_path='config.ini'):
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
 
-        self.db_host = os.environ['HOST']
-        self.db_port = os.environ['PORT']
-        self.db_name = os.environ['DBNAME']
-        self.db_user = os.environ['USER']
-        self.db_password = os.environ['PASSWORD']
+        logging.basicConfig(level=logging.INFO)
+        self.log = logging.getLogger(__name__)
+        
+        # Get credentials from Vault
+        self._get_db_credentials_from_vault()
         
         self.X_test_path = self.config["SPLIT_DATA"]["X_test"]
         self.y_test_path = self.config["SPLIT_DATA"]["y_test"]
@@ -22,12 +24,38 @@ class DatabaseOperator:
         self.X_train_path = self.config["SPLIT_DATA"]["X_train"]
         self.y_train_path = self.config["SPLIT_DATA"]["y_train"]
 
-        logging.basicConfig(level=logging.INFO)
-        self.log = logging.getLogger(__name__)
         self.log.info("DatabaseOperator initialized")
 
         self._wait_for_db()
         self._setup_database()
+    
+    def _get_db_credentials_from_vault(self):
+        """Fetch database credentials from HashiCorp Vault"""
+        try:
+            vault_addr = os.environ.get('VAULT_ADDR', 'http://localhost:8200')
+            vault_token = os.environ.get('VAULT_TOKEN', 'myroot')
+            
+            headers = {'X-Vault-Token': vault_token}
+            url = f"{vault_addr}/v1/db/credentials"
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                self.log.error(f"Failed to fetch secrets from Vault: {response.text}")
+                raise Exception("Failed to fetch secrets from Vault")
+
+            secrets = response.json()['data']
+            
+            self.db_host = secrets['host']
+            self.db_port = secrets['port']
+            self.db_name = secrets['dbname']
+            self.db_user = secrets['user']
+            self.db_password = secrets['password']
+            
+            self.log.info("Successfully retrieved database credentials from Vault")
+            
+        except Exception as e:
+            self.log.error(f"Error retrieving credentials from Vault: {e}")
+            raise
 
     def _wait_for_db(self, max_attempts=30, delay=10):
         self.log.info("Waiting for Greenplum database to be ready...")

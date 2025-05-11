@@ -1,53 +1,114 @@
 services:
-   train_model:
-       build: .
-       environment:
-         - HOST=${HOST}
-         - PORT=${PORT}
-         - DBNAME=${DBNAME}
-         - USER=${USER}
-         - PASSWORD=${PASSWORD}
-       command: bash -c "
-        python src/db_operations.py &&
-        python src/preprocess.py &&
-        python src/train.py && 
-        python src/predict.py -m ./catboost_model.cbm &&
-        coverage run src/unit_tests/test_preprocess.py &&
-        coverage run src/unit_tests/test_train.py &&
-        coverage run src/unit_tests/test_predict.py &&
-        coverage run src/unit_tests/test_model_app.py &&
-        coverage run src/unit_tests/test_db.py &&
-        coverage report -m
-        "
-       image: ka1mar/mlops-lab1:latest
-       depends_on:
-         - greenplum
-       networks:
-         - ml-network
+  vault:
+    image: hashicorp/vault:latest
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=${VAULT_DEV_ROOT_TOKEN_ID}
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - ml-network
 
-   web_app:
-       build: .
-       command: bash -c "python ./src/model_app.py && sleep 3600" 
-       image: ka1mar/mlops-lab1:latest
-       ports:
-         - "5000:5000"
-       restart: unless-stopped
-       tty: true
-       networks:
-         - ml-network
+  vault-setup:
+    image: hashicorp/vault:latest
+    depends_on:
+      - vault
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
+    command: >
+      sh -c "
+        sleep 30 &&
+        vault secrets enable -path=db kv &&
+        vault kv put db/credentials host=${HOST} port=${PORT} dbname=${DBNAME} user=${USER} password=${PASSWORD}
+      "
+    networks:
+      - ml-network
 
-   greenplum:
-       image: datagrip/greenplum:6.8
-       ports:
-         - "5432:5432"
-       volumes:
-         - greenplum-data:/var/lib/postgresql/data
-       networks:
-         - ml-network
+  train_model:
+    build: .
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
+    command: bash -c "
+      python src/preprocess.py &&
+      python src/db_operations.py &&
+      python src/train.py && 
+      python src/predict.py -m ./catboost_model.cbm &&
+      coverage run src/unit_tests/test_preprocess.py &&
+      coverage run src/unit_tests/test_train.py &&
+      coverage run src/unit_tests/test_predict.py &&
+      coverage run src/unit_tests/test_model_app.py &&
+      coverage run src/unit_tests/test_db.py &&
+      coverage report -m
+      "
+    image: ka1mar/mlops-lab1:latest
+    depends_on:
+      greenplum-setup:
+        condition: service_completed_successfully
+      vault-setup:
+        condition: service_completed_successfully
+    networks:
+      - ml-network
+
+  web_app:
+    build: .
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=myroot
+    command: bash -c "python ./src/model_app.py && sleep 3600" 
+    image: ka1mar/mlops-lab1:latest
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    tty: true
+    depends_on:
+      greenplum-setup:
+        condition: service_completed_successfully
+      vault-setup:
+        condition: service_completed_successfully
+    networks:
+      - ml-network
+
+  greenplum:
+    image: datagrip/greenplum:6.8
+    ports:
+      - "5432:5432"
+    volumes:
+      - greenplum-data:/var/lib/postgresql/data
+    networks:
+      - ml-network
+
+  greenplum-setup:
+    image: alpine
+    depends_on:
+      greenplum:
+        condition: service_started
+    environment:
+      - USER=${USER}
+      - PASSWORD=${PASSWORD}
+      - DBNAME=${DBNAME}
+      - HOST=${HOST}
+    command: >
+      /bin/sh -c "
+        apk add --no-cache postgresql-client &&
+        sleep 100 &&
+        PGPASSWORD=pivotal psql -h ${HOST} -U tester -d testdb -c \"CREATE USER ${USER} WITH PASSWORD '${PASSWORD}' SUPERUSER;\" &&
+        PGPASSWORD=pivotal psql -h ${HOST} -U tester -d testdb -c \"CREATE DATABASE ${DBNAME} WITH OWNER ${USER};\" &&
+
+        PGPASSWORD=${PASSWORD} psql -h ${HOST} -U ${USER} -d ${DBNAME} -c \"DROP DATABASE testdb;\" &&
+        PGPASSWORD=${PASSWORD} psql -h ${HOST} -U ${USER} -d ${DBNAME} -c \"DROP DATABASE guest;\" &&
+        PGPASSWORD=${PASSWORD} psql -h ${HOST} -U ${USER} -d ${DBNAME} -c \"DROP USER tester;\" &&
+        PGPASSWORD=${PASSWORD} psql -h ${HOST} -U ${USER} -d ${DBNAME} -c \"DROP USER guest;\"
+      "
+    networks:
+      - ml-network
 
 networks:
-    ml-network:
-        driver: bridge
+  ml-network:
+    driver: bridge
 
 volumes:
-    greenplum-data:
+  greenplum-data:
