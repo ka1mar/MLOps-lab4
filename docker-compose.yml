@@ -18,6 +18,11 @@ services:
     environment:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
+      - USER=${USER}
+      - PASSWORD=${PASSWORD}
+      - DBNAME=${DBNAME}
+      - HOST=${HOST}
+      - HOST=${PORT}
     command: >
       sh -c "
         sleep 30 &&
