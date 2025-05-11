@@ -30,4 +30,5 @@ jobs:
           DBNAME: ${{ secrets.DBNAME }}
           USER: ${{ secrets.USER }}
           PASSWORD: ${{ secrets.PASSWORD }}
+          VAULT_DEV_ROOT_TOKEN_ID: ${{ secrets.VAULT_DEV_ROOT_TOKEN_ID }}
         run: docker compose up --abort-on-container-exit
