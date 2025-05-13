@@ -254,9 +254,10 @@ class DatabaseOperator:
 
 
     def load_prediction_in_db(self, predictions):
-        """Load model predictions in the database"""
         conn = None
         try:
+            from kafka_producer import KafkaProducer
+            
             # Connect to database
             conn = psycopg2.connect(
                 host=self.db_host,
@@ -278,7 +279,7 @@ class DatabaseOperator:
                         pred['Perimeter'], 
                         pred['Compactness'], 
                         pred['Kernel.Length'], 
-                        pred['Kernel.Width'], 
+                        pred['Kernel.Width'],
                         pred['Asymmetry.Coeff'], 
                         pred['Kernel.Groove'], 
                         pred['target']
@@ -287,10 +288,19 @@ class DatabaseOperator:
             
             conn.commit()
             self.log.info(f"Successfully stored {len(predictions)} predictions in database")
+            
+            # Send metadata to Kafka
+            try:
+                kafka_producer = KafkaProducer()
+                kafka_producer.send_prediction_metadata(predictions)
+                self.log.info("Prediction metadata sent to Kafka")
+            except Exception as e:
+                self.log.error(f"Failed to send prediction metadata to Kafka: {str(e)}")
 
         except Exception as e:
             self.log.error(f"Error storing predictions in database: {e}")
-            if conn:conn.rollback()
+            if conn:
+                conn.rollback()
         finally:
             if conn:
                 conn.close()
