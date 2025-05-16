@@ -3,6 +3,7 @@ import logging
 import time
 import os
 import socket
+import requests
 from confluent_kafka import Producer
 
 # Set up logging
@@ -13,8 +14,8 @@ class KafkaProducer:
     def __init__(self):
         # Get configuration from environment
         bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
-        self.topic = os.environ.get('KAFKA_TOPIC', 'model-predictions')
-        
+        self._get_info_from_vault()
+
         # Configure the producer
         conf = {
             'bootstrap.servers': bootstrap_servers,
@@ -24,7 +25,29 @@ class KafkaProducer:
         # Create the producer
         self.producer = Producer(conf)
         logger.info(f"Kafka producer initialized with bootstrap servers: {bootstrap_servers}")
-    
+
+    def _get_info_from_vault(self):
+        try:
+            vault_addr = os.environ.get('VAULT_ADDR', 'http://localhost:8200')
+            vault_token = os.environ.get('VAULT_TOKEN', 'myroot')
+
+            headers = {'X-Vault-Token': vault_token}
+            url = f"{vault_addr}/v1/kafka/credentials"
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                self.log.error(f"Failed to fetch secrets from Vault: {response.text}")
+                raise Exception("Failed to fetch secrets from Vault")
+
+            secrets = response.json()['data']
+            self.topic = secrets['topic']
+            
+            self.log.info("Successfully retrieved kafka info from Vault")
+            
+        except Exception as e:
+            self.log.error(f"Error retrieving credentials from Vault: {e}")
+            raise
+
     def delivery_report(self, err, msg):
         if err is not None:
             logger.error(f"Message delivery failed: {err}")

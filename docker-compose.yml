@@ -22,12 +22,16 @@ services:
       - PASSWORD=${PASSWORD}
       - DBNAME=${DBNAME}
       - HOST=${HOST}
-      - HOST=${PORT}
+      - PORT=${PORT}
+      - KAFKA_TOPIC=${KAFKA_TOPIC}
+      - KAFKA_GROUP=${KAFKA_GROUP}
     command: >
       sh -c "
         sleep 30 &&
         vault secrets enable -path=db kv &&
-        vault kv put db/credentials host=${HOST} port=${PORT} dbname=${DBNAME} user=${USER} password=${PASSWORD}
+        vault kv put db/credentials host=${HOST} port=${PORT} dbname=${DBNAME} user=${USER} password=${PASSWORD} &&
+        vault secrets enable -path=kafka kv &&
+        vault kv put kafka/credentials topic=${KAFKA_TOPIC} group=${KAFKA_GROUP}
       "
     networks:
       - ml-network
@@ -122,6 +126,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
     healthcheck:
@@ -145,8 +151,9 @@ services:
   prediction-consumer:
     build: .
     environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFKA_TOPIC=model-predictions
     command: bash -c "python src/kafka_consumer.py"
     depends_on:
       kafka:

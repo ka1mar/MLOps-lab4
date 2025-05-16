@@ -1,5 +1,6 @@
 import json
 import logging
+import requests
 import os
 import time
 import signal
@@ -9,13 +10,13 @@ from confluent_kafka import Consumer, KafkaException
 
 
 class PredictionLogConsumer:
-    def __init__(self, servers=None, topic=None, group=None):
+    def __init__(self):
         self.logger = logging.getLogger('PredictionConsumer')
         
         # Configuration parameters (from env vars or defaults)
-        self.bootstrap_servers = servers or os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
-        self.topic = topic or os.environ.get('KAFKA_TOPIC', 'model-predictions')
-        self.group_id = group or os.environ.get('KAFKA_GROUP_ID', 'prediction-log-group')
+        self.bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
+
+        self._get_info_from_vault()
         
         # Stats tracking
         self.message_count = 0
@@ -25,7 +26,7 @@ class PredictionLogConsumer:
         # Consumer configuration
         self.consumer_config = {
             'bootstrap.servers': self.bootstrap_servers,
-            'group.id': self.group_id,
+            'group.id': self.group,
             'auto.offset.reset': 'earliest',
             'session.timeout.ms': 6000,
             'max.poll.interval.ms': 6000,
@@ -33,20 +34,41 @@ class PredictionLogConsumer:
             'auto.commit.interval.ms': 5000
         }
         
-        self.logger.info(f"Initialized consumer for topic '{self.topic}' with group '{self.group_id}'")
-    
+        self.logger.info(f"Initialized consumer for topic '{self.topic}' with group '{self.group}'")
+
+    def _get_info_from_vault(self):
+        try:
+            vault_addr = os.environ.get('VAULT_ADDR', 'http://localhost:8200')
+            vault_token = os.environ.get('VAULT_TOKEN', 'myroot')
+
+            headers = {'X-Vault-Token': vault_token}
+            url = f"{vault_addr}/v1/kafka/credentials"
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                self.log.error(f"Failed to fetch secrets from Vault: {response.text}")
+                raise Exception("Failed to fetch secrets from Vault")
+
+            secrets = response.json()['data']
+            
+            self.topic = secrets['topic']
+            self.group = secrets['group']
+            
+            self.log.info("Successfully retrieved kafka info from Vault")
+            
+        except Exception as e:
+            self.log.error(f"Error retrieving credentials from Vault: {e}")
+            raise
+
     def setup_signal_handlers(self):
-        """Set up signal handlers for graceful shutdown"""
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
     
     def _signal_handler(self, sig, frame):
-        """Handle termination signals"""
         self.logger.info(f"Received signal {sig}, shutting down...")
         self.running = False
     
     def _print_stats_periodically(self, interval=60):
-        """Print consumer stats periodically"""
         while self.running:
             time.sleep(interval)
             if self.message_count > 0 and self.start_time:
@@ -55,7 +77,6 @@ class PredictionLogConsumer:
                 self.logger.info(f"Stats: Consumed {self.message_count} messages in {elapsed:.2f}s ({rate:.2f} msgs/sec)")
     
     def start(self):
-        """Start consuming messages from Kafka"""
         self.setup_signal_handlers()
         self.running = True
         self.start_time = time.time()
@@ -112,12 +133,6 @@ class PredictionLogConsumer:
                 self.logger.info(f"Final stats: Consumed {self.message_count} messages in {elapsed:.2f} seconds")
     
     def _process_message(self, msg):
-        """
-        Process a message received from Kafka
-        
-        Parameters:
-            msg: Kafka message object
-        """
         try:
             # Parse the message value
             message_data = json.loads(msg.value().decode('utf-8'))
