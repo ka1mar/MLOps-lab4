@@ -31,4 +31,4 @@ jobs:
           USER: ${{ secrets.USER }}
           PASSWORD: ${{ secrets.PASSWORD }}
           VAULT_DEV_ROOT_TOKEN_ID: ${{ secrets.VAULT_DEV_ROOT_TOKEN_ID }}
-        run: docker compose up train_model --abort-on-container-exit
+        run: docker compose up train_model --abort-on-container-exit --exit-code-from train_model
