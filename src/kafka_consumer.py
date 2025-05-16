@@ -46,7 +46,7 @@ class PredictionLogConsumer:
 
             response = requests.get(url, headers=headers)
             if response.status_code != 200:
-                self.log.error(f"Failed to fetch secrets from Vault: {response.text}")
+                self.logger.error(f"Failed to fetch secrets from Vault: {response.text}")
                 raise Exception("Failed to fetch secrets from Vault")
 
             secrets = response.json()['data']
@@ -54,10 +54,10 @@ class PredictionLogConsumer:
             self.topic = secrets['topic']
             self.group = secrets['group']
             
-            self.log.info("Successfully retrieved kafka info from Vault")
+            self.logger.info("Successfully retrieved kafka info from Vault")
             
         except Exception as e:
-            self.log.error(f"Error retrieving credentials from Vault: {e}")
+            self.logger.error(f"Error retrieving credentials from Vault: {e}")
             raise
 
     def setup_signal_handlers(self):

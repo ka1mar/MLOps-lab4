@@ -36,16 +36,16 @@ class KafkaProducer:
 
             response = requests.get(url, headers=headers)
             if response.status_code != 200:
-                self.log.error(f"Failed to fetch secrets from Vault: {response.text}")
+                logger.error(f"Failed to fetch secrets from Vault: {response.text}")
                 raise Exception("Failed to fetch secrets from Vault")
 
             secrets = response.json()['data']
             self.topic = secrets['topic']
             
-            self.log.info("Successfully retrieved kafka info from Vault")
+            logger.info("Successfully retrieved kafka info from Vault")
             
         except Exception as e:
-            self.log.error(f"Error retrieving credentials from Vault: {e}")
+            logger.error(f"Error retrieving credentials from Vault: {e}")
             raise
 
     def delivery_report(self, err, msg):
