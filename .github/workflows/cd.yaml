@@ -10,20 +10,44 @@ jobs:
   cd:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v3
-      -
-        name: Login to Docker Hub
+
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Pull with compose
+
+      - name: Pull with compose
         run: docker compose pull
-      -
-        name: Run tests
+
+      - name: Pull and start Vault container
+        run: docker compose up -d vault
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: ${{ secrets.VAULT_DEV_ROOT_TOKEN_ID }}
+
+      - name: Check Vault container status
+        run: |
+          sleep 10
+          docker compose ps -a
+          docker compose logs vault
+          curl -v http://localhost:8200/v1/sys/health
+
+      - name: Setup Vault
+        run: |
+          chmod +x vault_setup.sh
+          ./vault_setup.sh
+        env:
+          VAULT_ADDR: http://localhost:8200
+          VAULT_DEV_ROOT_TOKEN_ID: ${{ secrets.VAULT_DEV_ROOT_TOKEN_ID }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
+          USER: ${{ secrets.USER }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+
+      - name: Run tests
         env: 
           HOST: ${{ secrets.HOST }}
           PORT: ${{ secrets.PORT }}
@@ -31,4 +55,4 @@ jobs:
           USER: ${{ secrets.USER }}
           PASSWORD: ${{ secrets.PASSWORD }}
           VAULT_DEV_ROOT_TOKEN_ID: ${{ secrets.VAULT_DEV_ROOT_TOKEN_ID }}
-        run: docker compose up train_model --abort-on-container-exit --exit-code-from train_model
+        run: docker compose up train_model --abort-on-container-exit --no-recreate --exit-code-from train_model
