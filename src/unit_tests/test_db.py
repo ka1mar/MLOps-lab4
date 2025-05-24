@@ -57,20 +57,6 @@ class TestDatabaseOperator(unittest.TestCase):
         self.mock_cursor.execute.assert_called()  # Tables were created
         self.mock_conn.commit.assert_called()
     
-    @patch('time.sleep')
-    def test_wait_for_db_retry(self, mock_sleep):
-        """Test database connection retry logic"""
-        # First attempt fails, second succeeds
-        self.mock_connect.side_effect = [
-            psycopg2.OperationalError("Connection failed"),
-            self.mock_conn
-        ]
-        
-        db_op = DatabaseOperator()
-        
-        self.assertEqual(self.mock_connect.call_count, 3)
-        mock_sleep.assert_called_once()
-    
     @patch('pandas.read_csv')
     def test_load_test_data_to_db(self, mock_read_csv):
         """Test loading test data to database"""

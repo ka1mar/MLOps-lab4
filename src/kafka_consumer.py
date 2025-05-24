@@ -6,7 +6,7 @@ import time
 import signal
 import threading
 from datetime import datetime
-from confluent_kafka import Consumer, KafkaException
+from confluent_kafka import Consumer
 
 
 class PredictionLogConsumer:
@@ -17,7 +17,8 @@ class PredictionLogConsumer:
         self.bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
 
         self._get_info_from_vault()
-        
+        self.topic = os.environ.get('KAFKA_TOPIC')
+
         # Stats tracking
         self.message_count = 0
         self.start_time = None
@@ -50,8 +51,6 @@ class PredictionLogConsumer:
                 raise Exception("Failed to fetch secrets from Vault")
 
             secrets = response.json()['data']
-            
-            self.topic = secrets['topic']
             self.group = secrets['group']
             
             self.logger.info("Successfully retrieved kafka info from Vault")
@@ -104,17 +103,13 @@ class PredictionLogConsumer:
                         continue
                     
                     if msg.error():
-                        if msg.error().code() == KafkaException._PARTITION_EOF:# End of partition event - not an error
-                            continue
-                        else:
-                            # Report error
-                            self.logger.error(f"Consumer error: {msg.error()}")
-                            continue
+                        self.logger.error(f"Consumer error: {msg.error()}")
+                        continue
                     
                     # Process valid message
                     self._process_message(msg)
                     self.message_count += 1
-                    
+
                 except Exception as e:
                     self.logger.error(f"Error during message polling: {str(e)}")
             

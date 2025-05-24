@@ -23,7 +23,6 @@ services:
       - DBNAME=${DBNAME}
       - HOST=${HOST}
       - PORT=${PORT}
-      - KAFKA_TOPIC=${KAFKA_TOPIC}
       - KAFKA_GROUP=${KAFKA_GROUP}
     command: >
       sh -c "
@@ -31,7 +30,7 @@ services:
         vault secrets enable -path=db kv &&
         vault kv put db/credentials host=${HOST} port=${PORT} dbname=${DBNAME} user=${USER} password=${PASSWORD} &&
         vault secrets enable -path=kafka kv &&
-        vault kv put kafka/credentials topic=${KAFKA_TOPIC} group=${KAFKA_GROUP}
+        vault kv put kafka/credentials group=${KAFKA_GROUP}
       "
     networks:
       - ml-network
@@ -41,6 +40,7 @@ services:
     environment:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
+      - KAFKA_TOPIC=${KAFKA_TOPIC}
     command: bash -c "
       python src/preprocess.py &&
       python src/db_operations.py &&
@@ -68,7 +68,7 @@ services:
     build: .
     environment:
       - VAULT_ADDR=http://vault:8200
-      - VAULT_TOKEN=myroot
+      - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
     command: bash -c "python ./src/model_app.py && sleep 3600" 
     image: ka1mar/mlops-lab1:latest
     ports:
@@ -153,13 +153,16 @@ services:
   prediction-consumer:
     build: .
     environment:
+      - KAFKA_TOPIC=${KAFKA_TOPIC}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN_ID}
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     command: bash -c "python src/kafka_consumer.py"
     depends_on:
       kafka:
         condition: service_healthy
+      vault-setup:
+        condition: service_completed_successfully
     networks:
       - ml-network
 
